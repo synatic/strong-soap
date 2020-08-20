@@ -28,6 +28,7 @@ class XMLHandler {
     this.options.xmlKey = this.options.xmlKey || '$xml';
     this.options.attributesKey = this.options.attributesKey || '$attributes';
     this.options.xsiTypeKey = this.options.xsiTypeKey || '$xsiType';
+    this.options.noDateZ = this.options.noDateZ || false;
   }
 
   jsonToXml(node, nsContext, descriptor, val) {
@@ -42,7 +43,7 @@ class XMLHandler {
     var name;
     let nameSpaceContextCreated = false;
     if (descriptor instanceof AttributeDescriptor) {
-      val = toXmlDateOrTime(descriptor, val);
+      val = toXmlDateOrTime(descriptor, val,this.options.noDateZ);
       name = descriptor.qname.name;
       if (descriptor.form === 'unqualified') {
         node.attribute(name, val);
@@ -116,7 +117,7 @@ class XMLHandler {
         && typeof val[this.options.xmlKey] !== "undefined") {
         val = val[this.options.xmlKey];
         element = node.element(elementName);
-        val = toXmlDateOrTime(descriptor, val);
+        val = toXmlDateOrTime(descriptor, val,this.options.noDateZ);
         element.raw(val);
       } else {
         // Enforce the type restrictions if configured for such
@@ -137,7 +138,7 @@ class XMLHandler {
             }
           }
         }
-        val = toXmlDateOrTime(descriptor, val);
+        val = toXmlDateOrTime(descriptor, val,this.options.noDateZ);
         element = isSimple ? node.element(elementName, val) : node.element(elementName);
       }
 
@@ -195,7 +196,7 @@ class XMLHandler {
       //val is not an object - simple or date types
       if (val != null && ( typeof val !== 'object' || val instanceof Date)) {
         // for adding a field value nsContext.popContext() shouldnt be called
-        val = toXmlDateOrTime(descriptor, val);
+        val = toXmlDateOrTime(descriptor, val,this.options.noDateZ);
         element.text(val);
         //add $attributes. Attribute can be an attribute defined in XSD or an xsi:type.
         //e.g of xsi:type <name xmlns=".." xmlns:xsi="..." xmlns:ns="..." xsi:type="ns:string">some name</name>
@@ -288,7 +289,7 @@ class XMLHandler {
   mapObject(node, nsContext, descriptor, val, attrs) {
     if (val == null) return node;
     if (typeof val !== 'object' || (val instanceof Date)) {
-      val = toXmlDateOrTime(descriptor, val);
+      val = toXmlDateOrTime(descriptor, val,this.options.noDateZ);
       node.text(val);
       return node;
     }
@@ -849,7 +850,7 @@ function parseValue(text, descriptor) {
   var jsType = descriptor && descriptor.jsType;
   if (jsType === Date) {
     var dateText = text;
-    // Checks for xs:date with tz, drops the tz 
+    // Checks for xs:date with tz, drops the tz
     // because xs:date doesn't have a time to offset
     // and JS Date object doesn't store an arbitrary tz
     if(dateText.length === 16){
@@ -868,10 +869,10 @@ function parseValue(text, descriptor) {
   return value;
 }
 
-function toXmlDate(date) {
+function toXmlDate(date,noZ) {
   date = new Date(date);
   var isoStr = date.toISOString();
-  return isoStr.split('T')[0] + 'Z';
+  return isoStr.split('T')[0] + (noZ?'':'Z');
 }
 
 function toXmlTime(date) {
@@ -886,10 +887,10 @@ function toXmlDateTime(date) {
   return isoStr;
 }
 
-function toXmlDateOrTime(descriptor, val) {
+function toXmlDateOrTime(descriptor, val,noDateZ) {
   if (!descriptor || !descriptor.type || val === null) return val;
   if (descriptor.type.name === 'date') {
-    val = toXmlDate(val);
+    val = toXmlDate(val,noDateZ);
   } else if (descriptor.type.name === 'time') {
     val = toXmlTime(val);
   } else if (descriptor.type.name === 'dateTime') {
